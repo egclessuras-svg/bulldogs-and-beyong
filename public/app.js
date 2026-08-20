@@ -591,6 +591,7 @@ window.__faStartDraft = function () {
     var pin = adminUnlocked ? adminPin() : ((document.getElementById('fa-admin-pin') || {}).value || prompt('Commissioner PIN:') || '');
     await api('/api/league/start-draft', { pin: pin });
     showAdmin = false;
+    render();
   });
 };
 
@@ -602,6 +603,7 @@ window.__faResetLeague = function () {
     myTeam = null;
     showAdmin = false;
     adminUnlocked = false;
+    render();
   });
 };
 
@@ -612,6 +614,7 @@ window.__faSelectTeam = function (name) {
     myTeam = name;
     localStorage.setItem('fa_myTeam', name);
     startPolling();
+    render(); // api()'s own re-render ran with myTeam still unset — render once more now that it's assigned, so the screen advances on the first click.
   });
 };
 
