@@ -390,25 +390,87 @@ function renderPlayerBrowser(showNominate) {
   return html;
 }
 
+// Starting lineup shape: two QBs, two RBs, two WRs, one TE, two RB/WR/TE
+// FLEX spots, one K, one DEF. Slots fill highest-contract-value-first so the
+// lineup always reflects what you'd actually start, then whatever's left
+// over falls to the bench, grouped by position and value the same way.
+var STARTER_SLOTS = [
+  { slot: 'QB', eligible: ['QB'] },
+  { slot: 'QB', eligible: ['QB'] },
+  { slot: 'RB', eligible: ['RB'] },
+  { slot: 'RB', eligible: ['RB'] },
+  { slot: 'WR', eligible: ['WR'] },
+  { slot: 'WR', eligible: ['WR'] },
+  { slot: 'TE', eligible: ['TE'] },
+  { slot: 'FLEX', eligible: ['RB', 'WR', 'TE'] },
+  { slot: 'FLEX', eligible: ['RB', 'WR', 'TE'] },
+  { slot: 'K', eligible: ['K'] },
+  { slot: 'DEF', eligible: ['DEF'] },
+];
+var BENCH_POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
+function buildLineup(roster) {
+  var pool = roster.slice().sort(function (a, b) { return b.contractValue - a.contractValue; });
+  var used = {};
+  var starters = STARTER_SLOTS.map(function (def) {
+    var pick = pool.find(function (p) { return !used[p.id] && def.eligible.indexOf(p.pos) !== -1; });
+    if (pick) used[pick.id] = true;
+    return { slot: def.slot, player: pick || null };
+  });
+  var bench = pool.filter(function (p) { return !used[p.id]; }).sort(function (a, b) {
+    var ai = BENCH_POS_ORDER.indexOf(a.pos); if (ai === -1) ai = BENCH_POS_ORDER.length;
+    var bi = BENCH_POS_ORDER.indexOf(b.pos); if (bi === -1) bi = BENCH_POS_ORDER.length;
+    return ai !== bi ? ai - bi : b.contractValue - a.contractValue;
+  });
+  return { starters: starters, bench: bench };
+}
+
+function rosterRow(slotLabel, p) {
+  var slotTag = '<div style="width:38px;flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:0.04em;color:#6B6B66;text-align:center;">' + (slotLabel ? esc(slotLabel) : '') + '</div>';
+
+  if (!p) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid #21252B;">' + slotTag +
+      '<div style="flex:1;border:1px dashed #2A2F37;border-radius:6px;padding:8px 10px;font-size:12px;color:#4A4E55;">Empty ' + esc(slotLabel) + ' slot</div></div>';
+  }
+
+  var html = '<div style="display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #21252B;">' + slotTag;
+  html += '<div style="flex:1;min-width:0;"><span style="font-size:14px;">' + esc(p.name) + '</span> <span style="font-size:11px;color:' + posColor(p.pos) + ';margin-left:6px;">' + esc(p.pos) + '</span>' + (p.ir ? ' <span style="font-size:10px;color:#C1443A;background:#3A1E1E;padding:2px 5px;border-radius:4px;margin-left:4px;">IR</span>' : '');
+  html += '<div style="font-size:11px;color:#6B6B66;margin-top:2px;">$' + p.contractValue + ' cap hit &middot; ' + p.yearsRemaining + 'yr remaining</div></div>';
+  if (p.wonThisSession) {
+    html += '<span style="font-size:11px;color:#6B6B66;flex-shrink:0;" title="Won at auction this draft — can\'t be cut">Locked</span>';
+  } else {
+    html += '<button class="fa-btn" data-id="' + esc(p.id) + '" onclick="window.__faCut(this.getAttribute(\'data-id\'))" style="background:#3A1E1E;color:#F09595;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;flex-shrink:0;">Cut</button>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function renderRosterTab() {
   var team = socketState.teams[myTeam];
   var html = '<div style="display:flex;justify-content:space-between;font-size:12px;color:#9A9A94;margin-bottom:10px;">';
   html += '<span>' + team.roster.length + ' / ' + teamLimit(team) + ' roster spots used</span></div>';
   html += '<div style="font-size:12px;color:#9A9A94;margin-bottom:10px;">$' + team.budget + ' cap room</div>';
+
+  if (!team.roster.length) {
+    html += '<div style="color:#6B6B66;font-size:13px;padding:12px 0;">No players rostered.</div>';
+    return html;
+  }
+
+  var lineup = buildLineup(team.roster);
   html += '<div>';
-  var sorted = team.roster.slice().sort(function (a, b) { return b.contractValue - a.contractValue; });
-  sorted.forEach(function (p) {
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-bottom:1px solid #21252B;">';
-    html += '<div><span style="font-size:14px;">' + esc(p.name) + '</span> <span style="font-size:11px;color:' + posColor(p.pos) + ';margin-left:6px;">' + esc(p.pos) + '</span>' + (p.ir ? ' <span style="font-size:10px;color:#C1443A;background:#3A1E1E;padding:2px 5px;border-radius:4px;margin-left:4px;">IR</span>' : '') + '';
-    html += '<div style="font-size:11px;color:#6B6B66;margin-top:2px;">$' + p.contractValue + ' cap hit &middot; ' + p.yearsRemaining + 'yr remaining</div></div>';
-    if (p.wonThisSession) {
-      html += '<span style="font-size:11px;color:#6B6B66;flex-shrink:0;" title="Won at auction this draft — can\'t be cut">Locked</span>';
-    } else {
-      html += '<button class="fa-btn" data-id="' + esc(p.id) + '" onclick="window.__faCut(this.getAttribute(\'data-id\'))" style="background:#3A1E1E;color:#F09595;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;flex-shrink:0;">Cut</button>';
-    }
-    html += '</div>';
-  });
-  if (!team.roster.length) html += '<div style="color:#6B6B66;font-size:13px;padding:12px 0;">No players rostered.</div>';
+  lineup.starters.forEach(function (row) { html += rosterRow(row.slot, row.player); });
+
+  html += '<div style="display:flex;align-items:center;gap:10px;margin:16px 0 8px;">';
+  html += '<div style="flex:1;height:1px;background:#2A2F37;"></div>';
+  html += '<div class="fa-scoreboard" style="font-size:11px;letter-spacing:0.15em;color:#6B6B66;">BENCH</div>';
+  html += '<div style="flex:1;height:1px;background:#2A2F37;"></div>';
+  html += '</div>';
+
+  if (lineup.bench.length) {
+    lineup.bench.forEach(function (p) { html += rosterRow(null, p); });
+  } else {
+    html += '<div style="color:#4A4E55;font-size:12px;padding:6px 2px 2px;">Nobody on the bench.</div>';
+  }
   html += '</div>';
   return html;
 }
