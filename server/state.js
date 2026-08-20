@@ -20,6 +20,7 @@ function emptyState() {
   return {
     leagueLoaded: false,
     draftStarted: false,
+    draftEnded: false,
     leagueName: null,
     commissionerPinHash: null,
     settings: { ...DEFAULT_SETTINGS },
@@ -178,6 +179,16 @@ function startDraft(state, pin) {
   logTx(state, { type: 'system', detail: 'Draft started' });
 }
 
+function endDraft(state, pin) {
+  requireCommissioner(state, pin);
+  if (!state.draftStarted) throw new AppError('The draft has not started yet.');
+  if (state.draftEnded) throw new AppError('The draft has already ended.');
+  if (state.currentAuction) throw new AppError('Finish the current auction before ending the draft.');
+  state.draftEnded = true;
+  state.turnDeadline = null;
+  logTx(state, { type: 'system', detail: 'Draft ended by commissioner' });
+}
+
 function resetLeague(state, pin) {
   requireCommissioner(state, pin);
   return emptyState();
@@ -245,7 +256,7 @@ function maybeFinalizeAuction(state) {
 // request so timers resolve consistently regardless of which device is
 // looking at the screen when a deadline passes.
 function applyTicks(state) {
-  if (!state.draftStarted) return false;
+  if (!state.draftStarted || state.draftEnded) return false;
   const before = JSON.stringify([state.currentAuction, state.turnIndex, state.turnDeadline]);
   if (state.currentAuction) maybeFinalizeAuction(state);
   else tickTurnLogic(state);
@@ -256,6 +267,7 @@ function applyTicks(state) {
 // --- Draft actions -------------------------------------------------------
 
 function nominate(state, teamName, playerName, startBid) {
+  if (state.draftEnded) throw new AppError('The draft has ended.');
   if (state.currentAuction) throw new AppError('An auction is already running.');
   const turnTeam = state.teamOrder[state.turnIndex];
   if (teamName !== turnTeam) throw new AppError("It's not your turn to nominate.");
@@ -280,6 +292,7 @@ function nominate(state, teamName, playerName, startBid) {
 }
 
 function placeBid(state, teamName, amount) {
+  if (state.draftEnded) throw new AppError('The draft has ended.');
   if (!state.currentAuction) throw new AppError('No auction is currently running.');
   const a = state.currentAuction;
   if (Date.now() >= a.timerEnd) throw new AppError('That auction just closed.');
@@ -323,6 +336,7 @@ module.exports = {
   updateSettings,
   setExtraSlots,
   startDraft,
+  endDraft,
   resetLeague,
   claimTeam,
   applyTicks,

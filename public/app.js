@@ -123,8 +123,8 @@ function render() {
   var root = document.getElementById('fa-root');
   if (!socketState) { root.innerHTML = '<div style="padding:2rem;text-align:center;color:#9A9A94;">Connecting…</div>'; syncAdminModal(); return; }
   if (!socketState.leagueLoaded) { renderImport(root); syncAdminModal(); return; }
-  if (!socketState.draftStarted) { renderReadyScreen(root); syncAdminModal(); return; }
   if (!myTeam || !socketState.teams[myTeam]) { renderTeamSelect(root); syncAdminModal(); return; }
+  if (!socketState.draftStarted) { renderWaitingRoom(root); syncAdminModal(); return; }
   renderMain(root);
   syncAdminModal();
 }
@@ -179,25 +179,42 @@ function renderImport(root) {
   root.innerHTML = html;
 }
 
-// --- Screen: ready (post-import, pre-draft) ------------------------------
+// --- Screen: waiting room (post-claim, pre-draft) ------------------------
 
-function renderReadyScreen(root) {
+function joinedCount() {
+  return socketState.teamOrder.filter(function (n) { return !!socketState.teams[n].claimedBy; }).length;
+}
+
+function renderWaitingRoom(root) {
   var teamCount = socketState.teamOrder.length;
-  var faCount = socketState.availablePlayers.length;
+  var joined = joinedCount();
   var s = socketState.settings;
   var html = '<div style="padding:2.2rem 1.5rem;text-align:center;">';
   html += header();
-  html += '<div class="fa-scoreboard" style="font-size:26px;line-height:1.15;margin-bottom:14px;">LEAGUE LOADED</div>';
+  html += '<div class="fa-scoreboard" style="font-size:24px;line-height:1.15;margin-bottom:4px;">' + esc(myTeam) + '</div>';
+  html += '<div style="font-size:13px;color:#9A9A94;margin-bottom:18px;">You\'re in. Waiting for the commissioner to start the draft&hellip;</div>';
+
   html += '<div style="background:#1D2127;border:1px solid #2A2F37;border-radius:10px;padding:14px;margin-bottom:16px;text-align:left;">';
-  html += row('Teams', teamCount);
-  html += row('Free agents in pool', faCount);
+  html += row('Teams joined', joined + ' / ' + teamCount);
   html += row('Cap per team', '$' + s.capAmount);
   html += row('Base roster spots', s.rosterBaseLimit);
   html += row('Nominate / bid timers', s.nominateSeconds + 's / ' + s.bidSeconds + 's');
   html += '</div>';
 
+  html += '<div style="display:flex;flex-direction:column;gap:6px;max-width:340px;margin:0 auto 20px;text-align:left;">';
+  socketState.teamOrder.forEach(function (name) {
+    var isJoined = !!socketState.teams[name].claimedBy;
+    var isMe = name === myTeam;
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 12px;background:#1D2127;border:1px solid ' + (isMe ? '#3C8C5C' : '#2A2F37') + ';border-radius:8px;">';
+    html += '<span style="' + (isMe ? 'font-weight:700;' : '') + '">' + esc(name) + (isMe ? ' (you)' : '') + '</span>';
+    html += '<span style="font-size:10px;font-weight:600;color:' + (isJoined ? '#3C8C5C' : '#6B6B66') + ';">' + (isJoined ? 'JOINED' : 'WAITING') + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+
   html += '<button class="fa-btn" onclick="window.__faOpenAdmin()" style="background:none;border:1px solid #2A2F37;color:#9A9A94;font-size:13px;padding:10px 18px;border-radius:8px;margin-bottom:10px;">Commissioner tools</button><br>';
   html += '<button class="fa-btn" onclick="window.__faStartDraft()" style="background:#D4A73C;color:#14171C;font-size:15px;font-weight:700;padding:13px 28px;border-radius:10px;">Start draft (PIN required)</button>';
+  html += '<div style="margin-top:16px;"><button class="fa-btn" onclick="window.__faSwitchTeam()" style="background:none;border:none;color:#6B6B66;font-size:12px;text-decoration:underline;">not your team? switch</button></div>';
 
   if (errorMsg) html += '<div style="background:#3A1E1E;color:#F09595;padding:8px 16px;border-radius:8px;font-size:12px;margin-top:14px;">' + esc(errorMsg) + '</div>';
   html += '</div>';
@@ -243,6 +260,13 @@ function renderMain(root) {
   html += '<button class="fa-btn" onclick="window.__faOpenAdmin()" title="Commissioner tools" style="background:#1D2127;border:1px solid #2A2F37;color:#9A9A94;width:30px;height:30px;border-radius:8px;font-size:14px;">⚙</button>';
   html += '</div></div>';
 
+  if (socketState.draftEnded) {
+    html += '<div style="background:#1F2E22;border-bottom:1px solid #2A2F37;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
+    html += '<span style="font-size:12px;color:#9A9A94;">Draft complete &mdash; rosters are final.</span>';
+    html += '<a href="/api/league/export-csv" style="font-size:12px;color:#3C8C5C;font-weight:600;text-decoration:underline;">Download rosters CSV</a>';
+    html += '</div>';
+  }
+
   html += '<div style="display:flex;border-bottom:1px solid #2A2F37;">';
   [['auction', 'Auction'], ['roster', 'My Roster'], ['teams', 'All Teams'], ['history', 'Transactions']].forEach(function (t) {
     html += '<div class="fa-tab' + (activeTab === t[0] ? ' active' : '') + '" onclick="window.__faTab(\'' + t[0] + '\')">' + t[1] + '</div>';
@@ -270,7 +294,8 @@ function renderAuctionTab() {
   var isMyTurn = turnTeam === myTeam;
   var html = '';
   if (socketState.turnDeadline === null) {
-    html += '<div style="text-align:center;padding:20px 0;color:#9A9A94;font-size:13px;">All rosters are full. The FA auction is complete.</div>';
+    var doneMsg = socketState.draftEnded ? 'The commissioner has ended the draft.' : 'All rosters are full. The FA auction is complete.';
+    html += '<div style="text-align:center;padding:20px 0;color:#9A9A94;font-size:13px;">' + doneMsg + '</div>';
     return html;
   }
   html += '<div style="background:#1D2127;border:1px solid #2A2F37;border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;">';
@@ -490,7 +515,12 @@ function renderAdminModal() {
 
     html += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid #2A2F37;">';
     if (!socketState.draftStarted) {
+      html += '<div style="font-size:11px;color:#6B6B66;margin-bottom:8px;">' + joinedCount() + ' of ' + socketState.teamOrder.length + ' teams have joined</div>';
       html += '<button class="fa-btn" onclick="window.__faStartDraft()" style="width:100%;background:#D4A73C;color:#14171C;padding:10px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:10px;">Start draft</button>';
+    } else if (!socketState.draftEnded) {
+      html += '<button class="fa-btn" onclick="window.__faEndDraft()" style="width:100%;background:#2A2F37;color:#F2F1ED;padding:10px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:10px;">End draft</button>';
+    } else {
+      html += '<a href="/api/league/export-csv" style="display:block;box-sizing:border-box;text-align:center;text-decoration:none;width:100%;background:#3C8C5C;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:10px;">Download final rosters (CSV)</a>';
     }
     html += '<button class="fa-btn" onclick="window.__faResetLeague()" style="width:100%;background:#3A1E1E;color:#F09595;padding:10px;border-radius:8px;font-size:13px;font-weight:600;">Reset league (wipes everything)</button>';
     html += '</div>';
@@ -587,10 +617,21 @@ window.__faSetExtraSlots = function (btn) {
 };
 
 window.__faStartDraft = function () {
+  var joined = joinedCount();
+  var total = socketState.teamOrder.length;
+  if (joined < total && !confirm('Only ' + joined + ' of ' + total + ' teams have joined. Start the draft anyway?')) return;
   runAction(async function () {
     var pin = adminUnlocked ? adminPin() : ((document.getElementById('fa-admin-pin') || {}).value || prompt('Commissioner PIN:') || '');
     await api('/api/league/start-draft', { pin: pin });
     showAdmin = false;
+    render();
+  });
+};
+
+window.__faEndDraft = function () {
+  if (!confirm('End the draft? No further nominations or bids will be allowed.')) return;
+  runAction(async function () {
+    await api('/api/league/end-draft', { pin: adminPin() });
     render();
   });
 };

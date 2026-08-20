@@ -105,4 +105,20 @@ function parseContractsCsv(text) {
   return rows;
 }
 
-module.exports = { parseFullRosterCsv, parseContractsCsv, DEFAULT_CAP };
+// Inverse of parseFullRosterCsv: rosters + the free-agent pool, back into the
+// exact header format expected on import, so a season's final export can be
+// re-uploaded as next season's starting point.
+function buildFullRosterCsv({ teamOrder, teams, availablePlayers }) {
+  const lines = ['Team,Player,Position,NFL Team,Bye,Contract value,Years remaining,IR'];
+  teamOrder.forEach((name) => {
+    teams[name].roster.forEach((p) => {
+      lines.push([name, p.name, p.pos, p.team, p.bye != null ? p.bye : '', p.contractValue, p.yearsRemaining, p.ir ? 'Y' : 'N'].join(','));
+    });
+  });
+  availablePlayers.forEach((p) => {
+    lines.push(['Free Agent', p.name, p.pos, p.team, p.bye != null ? p.bye : '', p.sortValue || 0, 0, 'N'].join(','));
+  });
+  return lines.join('\r\n') + '\r\n';
+}
+
+module.exports = { parseFullRosterCsv, parseContractsCsv, buildFullRosterCsv, DEFAULT_CAP };

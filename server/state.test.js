@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const S = require('./state');
+const csv = require('./csv');
 
 function fakeParsed() {
   return {
@@ -64,4 +65,42 @@ test('bidding below the current bid, on your own team, or over cap is rejected',
 test('settings cannot change after the draft has started', () => {
   const s = freshDraftState();
   assert.throws(() => S.updateSettings(s, { capAmount: 300 }, '1234'), /after the draft has started/);
+});
+
+test('the draft cannot be ended before it starts, or twice', () => {
+  const s = S.startNewLeague(fakeParsed(), { pin: '1234' });
+  assert.throws(() => S.endDraft(s, '1234'), /has not started/);
+  S.startDraft(s, '1234');
+  S.endDraft(s, '1234');
+  assert.throws(() => S.endDraft(s, '1234'), /already ended/);
+});
+
+test('the draft cannot be ended while an auction is live, only once it resolves', () => {
+  const s = freshDraftState();
+  S.nominate(s, 'Alpha', 'Free Guy', 5);
+  assert.throws(() => S.endDraft(s, '1234'), /Finish the current auction/);
+  s.currentAuction.timerEnd = Date.now() - 1;
+  S.applyTicks(s);
+  assert.doesNotThrow(() => S.endDraft(s, '1234'));
+  assert.throws(() => S.nominate(s, 'Beta', 'Starter A', 1), /draft has ended/);
+  const won = s.teams.Alpha.roster.find((p) => p.name === 'Free Guy');
+  assert.throws(() => S.cutPlayer(s, 'Alpha', won.id), /can't be cut/); // still blocked, but for the wonThisSession reason, not because the draft ended
+});
+
+test('exported CSV round-trips through the same importer used for the original upload', () => {
+  const s = freshDraftState();
+  S.nominate(s, 'Alpha', 'Free Guy', 5);
+  s.currentAuction.timerEnd = Date.now() - 1;
+  S.applyTicks(s);
+
+  const exported = csv.buildFullRosterCsv(s);
+  assert.match(exported, /^Team,Player,Position,NFL Team,Bye,Contract value,Years remaining,IR\r\n/);
+  assert.match(exported, /Alpha,Starter A,RB,DAL,7,5,1,N/);
+  assert.match(exported, /Alpha,Free Guy,WR,MIA,8,5,3,N/); // the auction winner now shows up on Alpha's roster line, not as a Free Agent row ($5 bid -> 3yr contract)
+
+  // Beta has zero players and so has no rows to write — same inherent limit
+  // as the original import format, not something the export introduces.
+  const reparsed = csv.parseFullRosterCsv(exported, S.newId, 200);
+  assert.ok(reparsed.teamOrder.includes('Alpha'));
+  assert.strictEqual(reparsed.teams.Alpha.roster.length, 2);
 });

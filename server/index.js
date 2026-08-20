@@ -113,6 +113,22 @@ app.post('/api/league/start-draft', asyncRoute(async (req, res) => {
   res.json({ ok: true, state: S.publicState(state), serverNow: Date.now() });
 }));
 
+app.post('/api/league/end-draft', asyncRoute(async (req, res) => {
+  const { pin } = req.body || {};
+  S.endDraft(state, pin);
+  await commit();
+  res.json({ ok: true, state: S.publicState(state), serverNow: Date.now() });
+}));
+
+app.get('/api/league/export-csv', (req, res) => {
+  if (!state.leagueLoaded) { res.status(400).json({ error: 'No league loaded yet.' }); return; }
+  const csvText = csv.buildFullRosterCsv(state);
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="bulldogs-and-beyond-rosters-${stamp}.csv"`);
+  res.send(csvText);
+});
+
 app.post('/api/league/reset', asyncRoute(async (req, res) => {
   const { pin } = req.body || {};
   state = S.resetLeague(state, pin);
