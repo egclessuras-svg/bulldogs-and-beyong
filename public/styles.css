@@ -1,11 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap');
 
+:root {
+  --void: #0B0D10;
+  --ink: #14171C;
+  --surface: #1D2127;
+  --surface-raised: #21262E;
+  --line: #2A2F37;
+  --line-soft: #21252B;
+  --text: #F2F1ED;
+  --text-dim: #9A9A94;
+  --text-faint: #6B6B66;
+  --text-ghost: #4A4E55;
+  --gold: #D4A73C;
+  --turf: #3C8C5C;
+  --alert: #E24B4A;
+  --alert-deep: #C1443A;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0;
   padding: 0;
-  background: #0B0D10;
+  background: var(--void);
   min-height: 100vh;
 }
 
@@ -17,8 +34,8 @@ body {
 
 .fa-app {
   font-family: 'Inter', sans-serif;
-  background: #14171C;
-  color: #F2F1ED;
+  background: var(--ink);
+  color: var(--text);
   border-radius: 16px;
   padding: 0;
   overflow: hidden;
@@ -30,18 +47,33 @@ body {
 
 .fa-scoreboard { font-family: 'Anton', sans-serif; letter-spacing: 0.02em; }
 
+.fa-eyebrow {
+  font-family: 'Anton', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
 .fa-btn {
   font-family: 'Inter', sans-serif;
   cursor: pointer;
   border: none;
-  transition: transform 0.08s ease, background 0.15s ease;
+  transition: transform 0.08s ease, background 0.15s ease, filter 0.15s ease;
 }
-.fa-btn:active { transform: scale(0.97); }
+.fa-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.fa-btn:active:not(:disabled) { transform: scale(0.97); }
 .fa-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.fa-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .fa-input {
   font-family: 'Inter', sans-serif;
   box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.fa-input:focus {
+  outline: none;
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 3px rgba(212, 167, 60, 0.16);
 }
 
 .fa-tab {
@@ -52,9 +84,12 @@ body {
   font-weight: 600;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  color: #6B6B66;
+  color: var(--text-faint);
+  transition: color 0.15s ease;
 }
-.fa-tab.active { color: #F2F1ED; border-bottom-color: #D4A73C; }
+.fa-tab:hover { color: var(--text-dim); }
+.fa-tab.active { color: var(--text); border-bottom-color: var(--gold); }
+.fa-tab:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 
 .fa-modal-backdrop {
   position: fixed;
@@ -67,12 +102,71 @@ body {
   padding: 16px;
 }
 .fa-modal {
-  background: #1D2127;
-  border: 1px solid #2A2F37;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 18px;
   width: 100%;
   max-width: 420px;
   max-height: 85vh;
   overflow-y: auto;
+}
+
+/* Signature: the bid clock reads like a real sideline play clock — a boxed
+   LED-style digit that goes red and pulses in the final seconds. This is
+   the one moment of real drama in the app (a live bid war), so it's the
+   one place styling gets loud. */
+.fa-playclock {
+  flex-shrink: 0;
+  margin-left: 12px;
+  width: 62px;
+  height: 62px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--surface-raised), var(--ink));
+  border: 1px solid var(--line);
+  box-shadow: inset 0 0 0 1px rgba(212, 167, 60, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fa-playclock__digits {
+  font-family: 'Anton', sans-serif;
+  font-size: 25px;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(212, 167, 60, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.fa-playclock__label {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+.fa-playclock--hot {
+  border-color: var(--alert);
+  box-shadow: inset 0 0 0 1px rgba(226, 75, 74, 0.25), 0 0 14px rgba(226, 75, 74, 0.3);
+}
+.fa-playclock--hot .fa-playclock__digits {
+  color: var(--alert);
+  text-shadow: 0 0 10px rgba(226, 75, 74, 0.55);
+  animation: fa-pulse 1s ease-in-out infinite;
+}
+@keyframes fa-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) {
+  .fa-playclock--hot .fa-playclock__digits { animation: none; }
+}
+
+.fa-timerbar-track { height: 5px; background: var(--line); border-radius: 3px; margin: 14px 0; overflow: hidden; }
+.fa-timerbar { height: 100%; background: var(--turf); border-radius: 3px; transition: width 0.2s linear, background 0.2s ease; }
+.fa-timerbar--hot { background: var(--alert); }
+
+/* Structural device tied to the subject: a yard-marker tick rule instead of
+   a plain hairline, used sparingly at real section breaks. */
+.fa-yardline {
+  flex: 1;
+  height: 2px;
+  background-image: repeating-linear-gradient(90deg, var(--line) 0 2px, transparent 2px 9px);
 }

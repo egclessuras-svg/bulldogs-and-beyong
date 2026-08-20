@@ -140,7 +140,7 @@ function syncAdminModal() {
 }
 
 function header() {
-  return '<div class="fa-scoreboard" style="font-size:12px;letter-spacing:0.15em;color:#D4A73C;margin-bottom:6px;">BULLDOGS & BEYOND</div>';
+  return '<div class="fa-eyebrow" style="color:#D4A73C;margin-bottom:6px;">BULLDOGS & BEYOND</div>';
 }
 
 // --- Screen: import -----------------------------------------------------
@@ -324,13 +324,12 @@ function renderAuctionBlock() {
   html += '<div style="display:inline-block;background:' + posColor(a.player.pos) + '22;color:' + posColor(a.player.pos) + ';font-size:11px;font-weight:600;padding:3px 8px;border-radius:5px;margin-bottom:8px;">' + esc(a.player.pos) + ' &middot; ' + esc(a.player.team) + (a.player.bye ? ' &middot; bye ' + esc(a.player.bye) : '') + '</div>';
   html += '<div class="fa-scoreboard" style="font-size:23px;line-height:1.15;">' + esc(a.player.name) + '</div>';
   html += '</div>';
-  html += '<div style="text-align:center;flex-shrink:0;margin-left:12px;">';
-  html += '<div id="fa-timer-ring-text" class="fa-scoreboard" style="font-size:28px;color:' + (secs <= 3 ? '#E24B4A' : '#F2F1ED') + ';">' + secs + '</div>';
-  html += '<div style="font-size:10px;color:#6B6B66;">SECONDS</div>';
+  html += '<div id="fa-playclock" class="fa-playclock' + (secs <= 5 ? ' fa-playclock--hot' : '') + '">';
+  html += '<div id="fa-timer-ring-text" class="fa-playclock__digits">' + secs + '</div>';
+  html += '<div class="fa-playclock__label">SECONDS</div>';
   html += '</div></div>';
 
-  html += '<div style="height:4px;background:#2A2F37;border-radius:2px;margin:14px 0;overflow:hidden;">';
-  html += '<div id="fa-timer-bar" style="height:100%;background:#3C8C5C;width:100%;transition:width 0.2s linear;"></div></div>';
+  html += '<div class="fa-timerbar-track"><div id="fa-timer-bar" class="fa-timerbar' + (secs <= 5 ? ' fa-timerbar--hot' : '') + '" style="width:100%;"></div></div>';
 
   html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;">';
   html += '<div><div style="font-size:11px;color:#9A9A94;">CURRENT BID</div><div class="fa-scoreboard" style="font-size:32px;color:#D4A73C;">$' + a.currentBid + '</div></div>';
@@ -461,9 +460,9 @@ function renderRosterTab() {
   lineup.starters.forEach(function (row) { html += rosterRow(row.slot, row.player); });
 
   html += '<div style="display:flex;align-items:center;gap:10px;margin:16px 0 8px;">';
-  html += '<div style="flex:1;height:1px;background:#2A2F37;"></div>';
-  html += '<div class="fa-scoreboard" style="font-size:11px;letter-spacing:0.15em;color:#6B6B66;">BENCH</div>';
-  html += '<div style="flex:1;height:1px;background:#2A2F37;"></div>';
+  html += '<div class="fa-yardline"></div>';
+  html += '<div class="fa-eyebrow" style="color:#6B6B66;">BENCH</div>';
+  html += '<div class="fa-yardline"></div>';
   html += '</div>';
 
   if (lineup.bench.length) {
@@ -513,15 +512,18 @@ function renderHistoryTab() {
 function renderTimerOnly() {
   if (!socketState) return;
   var ring = document.getElementById('fa-timer-ring-text');
+  var clock = document.getElementById('fa-playclock');
   var bar = document.getElementById('fa-timer-bar');
   if (socketState.currentAuction && ring) {
     var remaining = socketState.currentAuction.timerEnd - serverNow();
     var secs = fmtSecs(remaining);
+    var hot = secs <= 5;
     ring.textContent = secs;
+    if (clock) clock.classList.toggle('fa-playclock--hot', hot);
     if (bar) {
       var pct = Math.max(0, Math.min(100, (remaining / (socketState.settings.bidSeconds * 1000)) * 100));
       bar.style.width = pct + '%';
-      bar.style.background = secs <= 3 ? '#C1443A' : '#3C8C5C';
+      bar.classList.toggle('fa-timerbar--hot', hot);
     }
   } else {
     var nomRing = document.getElementById('fa-nom-timer-text');
