@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap');
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0B0D10;
+  min-height: 100vh;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  padding: 24px 12px;
+}
+
+.fa-app {
+  font-family: 'Inter', sans-serif;
+  background: #14171C;
+  color: #F2F1ED;
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 200px;
+}
+
+.fa-scoreboard { font-family: 'Anton', sans-serif; letter-spacing: 0.02em; }
+
+.fa-btn {
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+.fa-btn:active { transform: scale(0.97); }
+.fa-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fa-input {
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+}
+
+.fa-tab {
+  flex: 1;
+  text-align: center;
+  padding: 11px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: #6B6B66;
+}
+.fa-tab.active { color: #F2F1ED; border-bottom-color: #D4A73C; }
+
+.fa-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+.fa-modal {
+  background: #1D2127;
+  border: 1px solid #2A2F37;
+  border-radius: 12px;
+  padding: 18px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
