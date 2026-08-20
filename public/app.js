@@ -2,6 +2,7 @@
 'use strict';
 
 var socketState = null;
+var lastStateJson = null;
 var clockOffset = 0;
 var ws = null;
 var wsRetryMs = 1000;
@@ -58,9 +59,18 @@ async function api(path, body) {
   return data;
 }
 
+// The poll fallback (and every WS push) calls this on a timer regardless of
+// whether anything actually changed. render() does a full innerHTML replace,
+// which would otherwise wipe out an in-progress PIN entry or a chosen file
+// out from under the user every few seconds — so skip the re-render (and the
+// DOM reset that comes with it) when the incoming state is identical to what
+// is already on screen.
 function onServerMessage(payload) {
-  socketState = payload.state;
   clockOffset = payload.serverNow - Date.now();
+  var incoming = JSON.stringify(payload.state);
+  if (incoming === lastStateJson) return;
+  lastStateJson = incoming;
+  socketState = payload.state;
   render();
 }
 
